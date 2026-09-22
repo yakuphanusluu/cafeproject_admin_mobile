@@ -1,0 +1,19 @@
+﻿*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# App build folders
+app/build/
+*/build/
+
+# Python scripts and APKs generated during development
+*.py
+*.apk
+*.log
