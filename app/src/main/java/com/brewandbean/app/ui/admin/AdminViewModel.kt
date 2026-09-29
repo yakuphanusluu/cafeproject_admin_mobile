@@ -151,4 +151,17 @@ class AdminViewModel @Inject constructor(
             _isLoading.value = false
         }
     }
+
+    fun updateCafeLocation(lat: Double, lng: Double, radius: Int = 100) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val result = repository.updateCafeLocation(lat, lng, radius)
+            if (result.isSuccess) {
+                _successMessage.value = if (com.brewandbean.app.util.LanguageManager.isEnglish.value) "Cafe location updated successfully." else "Kafe konumu başarıyla güncellendi."
+            } else {
+                _errorMessage.value = result.exceptionOrNull()?.localizedMessage ?: "Konum güncellenemedi"
+            }
+            _isLoading.value = false
+        }
+    }
 }

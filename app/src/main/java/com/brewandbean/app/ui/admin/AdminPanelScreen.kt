@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brewandbean.app.data.model.AdminOrder
 import com.brewandbean.app.data.model.Report
+import kotlinx.coroutines.launch
 
 // Sitedeki renkler birebir
 private val clrPrimary = Color(0xFF1A1A2E)
@@ -59,18 +60,125 @@ fun AdminPanelScreen(
 
     // Gunsonu onay dialog
     var showEndDayDialog by remember { mutableStateOf(false) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    // Konum yukleme dialog durumu
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    
+    val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions -> 
+        if (permissions.values.all { it }) {
+            isFetchingLocation = true
+            coroutineScope.launch {
+                val loc = com.brewandbean.app.util.LocationHelper(context).getCurrentLocation()
+                if (loc != null) {
+                    viewModel.updateCafeLocation(loc.latitude, loc.longitude, 100)
+                } else {
+                    snackbarHostState.showSnackbar(if (isEn) "Location could not be retrieved. Please check if GPS is enabled." else "Konum alınamadı. Lütfen GPS/Konum servisinin açık olduğundan emin olun.")
+                }
+                isFetchingLocation = false
+            }
+        } else {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(if (isEn) "Location permission denied" else "Konum izni reddedildi")
+            }
+        }
+    }
+
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val onSetLocationClick: () -> Unit = {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        if (!com.brewandbean.app.util.LocationHelper(context).hasLocationPermission(context)) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            isFetchingLocation = true
+            coroutineScope.launch {
+                val loc = com.brewandbean.app.util.LocationHelper(context).getCurrentLocation()
+                if (loc != null) {
+                    viewModel.updateCafeLocation(loc.latitude, loc.longitude, 100)
+                } else {
+                    snackbarHostState.showSnackbar(if (isEn) "Location could not be retrieved. Please check if GPS is enabled." else "Konum alınamadı. Lütfen GPS/Konum servisinin açık olduğundan emin olun.")
+                }
+                isFetchingLocation = false
+            }
+        }
+    }
+
+    if (isFetchingLocation) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { }) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(color = clrPrimary)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        if (isEn) "Fetching device location..." else "Cihaz konumu alınıyor...",
+                        color = clrPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.fetchReports()
     }
 
-    LaunchedEffect(errorMessage, successMessage) {
+    LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
-        successMessage?.let {
-            snackbarHostState.showSnackbar(it)
+    }
+
+    // Harika basari dialogu
+    successMessage?.let { msg ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.clearSuccess() }) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                modifier = Modifier.padding(16.dp),
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("✅", fontSize = 64.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        if (isEn) "Success!" else "Başarılı!",
+                        color = clrPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        msg,
+                        color = clrTextMuted,
+                        fontSize = 15.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        
+        LaunchedEffect(msg) {
+            kotlinx.coroutines.delay(2000)
             viewModel.clearSuccess()
         }
     }
@@ -211,7 +319,8 @@ fun AdminPanelScreen(
                         orders = orders,
                         isLoading = isLoading,
                         onEndDay = { showEndDayDialog = true },
-                        onRefresh = { viewModel.refreshOrders() }
+                        onRefresh = { viewModel.refreshOrders() },
+                        onSetLocationClick = onSetLocationClick
                     )
                 } else {
                     // ===== RAPORLAR TAB (sitedeki #tabReports) =====
@@ -245,7 +354,8 @@ private fun DashboardContent(
     orders: List<AdminOrder>,
     isLoading: Boolean,
     onEndDay: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSetLocationClick: () -> Unit
 ) {
     val isEn by com.brewandbean.app.util.LanguageManager.isEnglish.collectAsState()
     val totalOrders = orders.size
@@ -276,20 +386,39 @@ private fun DashboardContent(
 
         // Sitedeki .section-bar: baslik + gunsonu butonu
         item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(if(isEn) "Today's Orders" else "Gunun Siparisleri", fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = clrPrimary)
-                // Sitedeki .end-day-btn
-                Button(
-                    onClick = onEndDay,
-                    colors = ButtonDefaults.buttonColors(containerColor = clrDanger),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                Text(if(isEn) "Today's Orders" else "Günün Siparişleri", fontFamily = FontFamily.Serif, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = clrPrimary)
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(if(isEn) "🌙 End of Day" else "🌙 Gunsonu Yap", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Button(
+                        onClick = onSetLocationClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = clrPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if(isEn) "📍 Set Location" else "📍 Konum Belirle", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                    }
+
+                    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            onEndDay()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = clrDanger),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if(isEn) "🌙 End of Day" else "🌙 Günsonu Yap", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1)
+                    }
                 }
             }
         }

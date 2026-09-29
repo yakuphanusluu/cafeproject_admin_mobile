@@ -18,38 +18,47 @@ import com.brewandbean.app.ui.admin.AdminPanelScreen
 import com.brewandbean.app.ui.admin.AdminViewModel
 import com.brewandbean.app.ui.theme.BrewAndBeanTheme
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.brewandbean.app.util.LanguageManager.init(applicationContext)
+        com.brewandbean.app.util.NetworkMonitor.init(applicationContext)
         setContent {
             BrewAndBeanTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val navController = rememberNavController()
-                    val adminViewModel = hiltViewModel<AdminViewModel>()
-                    
-                    NavHost(navController = navController, startDestination = "home") {
-                        composable("home") {
-                            HomeScreen(
-                                onNavigateToBarista = { navController.navigate("barista") },
-                                onNavigateToAdmin = { navController.navigate("admin") }
-                            )
-                        }
-                        composable("barista") {
-                            BaristaScreen(
-                                viewModel = adminViewModel,
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
-                        composable("admin") {
-                            AdminPanelScreen(
-                                viewModel = adminViewModel,
-                                onBack = { navController.popBackStack() }
-                            )
+                    val isConnected by com.brewandbean.app.util.NetworkMonitor.isConnected.collectAsState()
+                    if (!isConnected) {
+                        com.brewandbean.app.ui.admin.NoInternetScreen()
+                    } else {
+                        val navController = rememberNavController()
+                        val adminViewModel = hiltViewModel<AdminViewModel>()
+                        
+                        NavHost(navController = navController, startDestination = "home") {
+                            composable("home") {
+                                HomeScreen(
+                                    onNavigateToBarista = { navController.navigate("barista") },
+                                    onNavigateToAdmin = { navController.navigate("admin") }
+                                )
+                            }
+                            composable("barista") {
+                                BaristaScreen(
+                                    viewModel = adminViewModel,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable("admin") {
+                                AdminPanelScreen(
+                                    viewModel = adminViewModel,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
                         }
                     }
                 }

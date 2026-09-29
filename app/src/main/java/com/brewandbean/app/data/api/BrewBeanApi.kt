@@ -25,4 +25,13 @@ interface BrewBeanApi {
 
     @POST("end-of-day.php")
     suspend fun endOfDay(): EndOfDayResponse
+
+    @POST("location.php")
+    suspend fun updateCafeLocation(@Body request: LocationRequest): ApiResponse
 }
+
+data class LocationRequest(
+    @com.google.gson.annotations.SerializedName("latitude") val latitude: Double, 
+    @com.google.gson.annotations.SerializedName("longitude") val longitude: Double, 
+    @com.google.gson.annotations.SerializedName("radius") val radius: Int
+)

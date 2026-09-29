@@ -63,4 +63,21 @@ class AdminRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun updateCafeLocation(lat: Double, lng: Double, radius: Int): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.updateCafeLocation(com.brewandbean.app.data.api.LocationRequest(
+                latitude = lat, 
+                longitude = lng, 
+                radius = radius
+            ))
+            if (response.success == true) {
+                Result.success(true)
+            } else {
+                Result.failure(Exception(response.message ?: "Konum guncellenemedi"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
