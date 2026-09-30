@@ -358,6 +358,7 @@ private fun DashboardContent(
     onSetLocationClick: () -> Unit
 ) {
     val isEn by com.brewandbean.app.util.LanguageManager.isEnglish.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val totalOrders = orders.size
     val totalRevenue = orders.sumOf { it.subtotalInt }
     val cardRev = orders.filter { it.paymentMethod == "kart" }.sumOf { it.subtotalInt }
