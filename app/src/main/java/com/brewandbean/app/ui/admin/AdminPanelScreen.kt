@@ -89,7 +89,7 @@ fun AdminPanelScreen(
 
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val onSetLocationClick: () -> Unit = {
-        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        com.brewandbean.app.util.VibrationHelper.vibrate(context, 60)
         if (!com.brewandbean.app.util.LocationHelper(context).hasLocationPermission(context)) {
             locationPermissionLauncher.launch(
                 arrayOf(
@@ -409,7 +409,7 @@ private fun DashboardContent(
                     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
                     Button(
                         onClick = {
-                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            com.brewandbean.app.util.VibrationHelper.vibrate(context, 60)
                             onEndDay()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = clrDanger),
